@@ -8,22 +8,38 @@ import { Purchase } from "../models/Purchase.js";
 
 
 export const paymentByAda = async (req, res) => {
-    const { utxos, changeAddress, getAddress, value, courseId, userId } = req.body;
+    const { utxos, changeAddress, getAddress, value, courseId, userId, redirectUrl } = req.body;
 
     try {
         // Check if user already owns the course
         const user = await User.findById(userId);
         if (user && user.enrolledCourses.includes(courseId)) {
-            return res.status(400).json({ success: false, message: 'You already own this course.' });
+            return res.status(400).json({ 
+                success: false, 
+                message: 'You already own this course.',
+                redirectUrl: `${redirectUrl || 'https://client-react-brown.vercel.app'}/my-enrollments?status=info&message=You already own this course.`
+            });
         }
         const unsignedTx = await sendAda(utxos, changeAddress, getAddress, value);
         if (!unsignedTx) {
-            return res.status(500).json({ success: false, message: "Loi thanh toan" });
+            return res.status(500).json({ 
+                success: false, 
+                message: "Loi thanh toan",
+                redirectUrl: `${redirectUrl || 'https://client-react-brown.vercel.app'}/my-enrollments?status=error&message=Payment failed. Please try again.`
+            });
         }
-        res.json({ success: true, unsignedTx });
+        res.json({ 
+            success: true, 
+            unsignedTx,
+            redirectUrl: `${redirectUrl || 'https://client-react-brown.vercel.app'}/my-enrollments?status=success&message=Payment successful! You are now enrolled in the course.`
+        });
     } catch (error) {
         console.error("Lỗi thanh toan:", error);
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ 
+            success: false, 
+            message: error.message,
+            redirectUrl: `${redirectUrl || 'https://client-react-brown.vercel.app'}/my-enrollments?status=error&message=${encodeURIComponent(error.message)}`
+        });
     }
 };
 
