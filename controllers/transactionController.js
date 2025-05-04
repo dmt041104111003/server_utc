@@ -153,28 +153,46 @@ export const paypalSuccess = async (req, res) => {
         const course = await Course.findById(courseId);
         const educator = course ? await User.findById(course.educator) : null;
 
+        if (!course) {
+            throw new Error('Course not found');
+        }
+
+        // Kiểm tra xem người dùng đã đăng ký khóa học này chưa
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        // Kiểm tra xem người dùng đã đăng ký khóa học này chưa
+        const isAlreadyEnrolled = user.enrolledCourses.includes(courseId);
+        
+        if (isAlreadyEnrolled) {
+            console.log(`User ${userId} already enrolled in course ${courseId}. Skipping enrollment.`);
+            // Vẫn chuyển hướng đến trang my-enrollments nhưng với thông báo khác
+            const origin = req.get('origin') || 'https://client-react-brown.vercel.app';
+            return res.redirect(`${origin}/my-enrollments?status=info&message=You are already enrolled in this course.`);
+        }
+
         // Create purchase record
-        const purchase = await Purchase.create({
+        await Purchase.create({
             courseId,
             userId,
             amount: payment.transactions[0].amount.total,
-            currency: 'USD',
+            currency: payment.transactions[0].amount.currency,
             status: 'completed',
-            paymentMethod: 'PayPal',
-            receiverAddress: educator && educator.paypalEmail ? educator.paypalEmail : '',
-            note: 'Payment successful',
-            createdAt: new Date()
+            paymentMethod: 'PayPal payment',
+            paymentId: payment.id,
+            payerId: payerId,
+            receiverAddress: educator?.paypalEmail || 'No educator email',
+            note: 'Payment completed',
+            createdAt: new Date(),
         });
 
-        // Update user's enrolled courses
-        const user = await User.findById(userId);
-
-        if (user && course) {
-            user.enrolledCourses.push(courseId);
-            course.enrolledStudents.push(userId);
-            await user.save();
-            await course.save();
-        }
+        // Update user and course
+        user.enrolledCourses.push(courseId);
+        course.enrolledStudents.push(userId);
+        await user.save();
+        await course.save();
 
         const origin = req.get('origin') || 'https://client-react-brown.vercel.app';
         res.redirect(`${origin}/my-enrollments?status=success&message=Payment successful! You are now enrolled in the course.`);
