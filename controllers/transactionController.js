@@ -176,17 +176,17 @@ export const paypalSuccess = async (req, res) => {
             await course.save();
         }
 
-        const origin = req.get('origin') || 'http://localhost:5173';
+        const origin = req.get('origin') || 'https://client-react-brown.vercel.app';
         res.redirect(`${origin}/my-enrollments?status=success&message=Payment successful! You are now enrolled in the course.`);
     } catch (error) {
         console.error('PayPal success error:', error);
-        const origin = req.get('origin') || 'http://localhost:5173';
+        const origin = req.get('origin') || 'https://client-react-brown.vercel.app';
         res.redirect(`${origin}/my-enrollments?status=error&message=${encodeURIComponent(error.message)}`);
     }
 };
 
 export const paypalCancel = async (req, res) => {
-    const origin = req.get('origin') || 'http://localhost:5173';
+    const origin = req.get('origin') || 'https://client-react-brown.vercel.app';
     res.redirect(`${origin}/my-enrollments?status=cancelled&message=Payment was cancelled.`);
 };
 
@@ -219,8 +219,8 @@ export const paypalCancel = async (req, res) => {
         });
 
         const session = await stripe.checkout.sessions.create({
-            success_url: `${req.get('origin') || 'http://localhost:5173'}/my-enrollments?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.get('origin') || 'http://localhost:5173'}/courses`,
+            success_url: `${req.get('origin') || 'https://client-react-brown.vercel.app'}/my-enrollments?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.get('origin') || 'https://client-react-brown.vercel.app'}/courses`,
             line_items: [{
                 price_data: {
                     currency: 'usd',
@@ -267,11 +267,11 @@ export const stripeSuccess = async (req, res) => {
             await course.save();
         }
 
-        const origin = req.get('origin') || req.get('referer')?.replace(/\/[^/]*$/, '') || 'http://localhost:5173';
+        const origin = req.get('origin') || req.get('referer')?.replace(/\/[^/]*$/, '') || 'https://client-react-brown.vercel.app';
         res.redirect(`${origin}/my-enrollments`);
     } catch (error) {
         console.error('Stripe success error:', error);
-        const origin = req.get('origin') || req.get('referer')?.replace(/\/[^/]*$/, '') || 'http://localhost:5173';
+        const origin = req.get('origin') || req.get('referer')?.replace(/\/[^/]*$/, '') || 'https://client-react-brown.vercel.app';
         res.redirect(`${origin}/payment-error?code=stripe_failed`);
     }
 };
@@ -284,6 +284,6 @@ export const stripeCancel = async (req, res) => {
     } catch (error) {
         console.error('Stripe cancel error:', error);
     }
-    const origin = req.get('origin') || req.get('referer')?.replace(/\/[^/]*$/, '') || 'http://localhost:5173';
+    const origin = req.get('origin') || req.get('referer')?.replace(/\/[^/]*$/, '') || 'https://client-react-brown.vercel.app';
     res.redirect(`${origin}/courses`);
 };
