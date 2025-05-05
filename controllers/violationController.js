@@ -47,7 +47,39 @@ export const reportViolation = async (req, res) => {
         let violation;
         
         if (existingViolation) {
-            // Nếu đã có vi phạm, cập nhật vi phạm đó
+            // Kiểm tra xem vi phạm đã được mint thành NFT chưa
+            if (existingViolation.nftMinted) {
+                console.log(`Violation for student ${studentId} in course ${courseId} has already been minted as NFT, creating new violation`);
+                
+                // Tạo vi phạm mới với testId khác đi một chút
+                const newTestId = testId + "_" + Date.now().toString().slice(-4);
+                console.log(`Creating new violation with modified testId: ${newTestId}`);
+                
+                violation = await Violation.create({
+                    studentId,
+                    walletAddress: walletAddress || "",
+                    courseId,
+                    educatorId: courseEducatorId || "",
+                    testId: newTestId,  // Sử dụng testId mới
+                    violationType,
+                    message,
+                    imageData,
+                    timestamp: new Date()
+                });
+                
+                console.log(`Created new violation with ID: ${violation._id} for minted test`);
+                
+                return res.status(201).json({ 
+                    success: true, 
+                    violation: {
+                        _id: violation._id,
+                        violationType: violation.violationType,
+                        timestamp: violation.timestamp
+                    }
+                });
+            }
+            
+            // Nếu đã có vi phạm và chưa mint, cập nhật vi phạm đó
             console.log(`Updating existing violation for student ${studentId} in course ${courseId}`);
             
             existingViolation.violationType = violationType;
