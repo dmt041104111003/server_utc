@@ -9,7 +9,7 @@ dotenv.config();
 
 export const createViolationNFTTransaction = async (req, res) => {
     try {
-        const { violationId, utxos, userAddress, collateral, educatorAddress, violationData } = req.body;
+        const { violationId, utxos, userAddress, collateral, educatorAddress, educatorId, violationData } = req.body;
 
         if (!violationId || !educatorAddress || !utxos || !userAddress || !collateral) {
             return res.status(400).json({
@@ -46,6 +46,7 @@ export const createViolationNFTTransaction = async (req, res) => {
                 testId: violation.testId || '',
                 studentId: violation.studentId || '',
                 timestamp: violation.timestamp || violation.createdAt,
+                educatorId: educatorId || violation.educatorId || '',
                 educatorAddress: educatorAddress
             };
         }

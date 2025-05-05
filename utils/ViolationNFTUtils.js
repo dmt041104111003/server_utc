@@ -66,15 +66,13 @@ async function createViolationNFT({
                         violation_type: violationData.violationType || 'unknown',
                         violation_message: violationData.message || '',
                         course_id: violationData.courseId ? violationData.courseId.toString() : '',
-                        course_title: violationData.courseTitle || courseData.courseTitle || 'Unknown Course',
                         test_id: violationData.testId || '',
                         student_id: violationData.studentId ? violationData.studentId.toString() : '',
-                        student_name: courseData.studentName || '',
                         student_address: shortUserAddress,
-                        educator_address: shortEducatorAddress,
                         timestamp: violationData.timestamp || new Date().toISOString(),
                         issued_at: new Date().toISOString().split('T')[0],
                         creator_address: shortEducatorAddress,
+                        educator_id: violationData.educatorId || '',
                         created_at: courseData.createdAt || new Date().toISOString(),
                     }
                 }

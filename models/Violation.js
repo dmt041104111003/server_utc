@@ -13,6 +13,10 @@ const violationSchema = new mongoose.Schema({
         type: String, 
         required: true 
     },
+    educatorId: {
+        type: String,
+        default: ""
+    },
     testId: { 
         type: String, 
         required: true 
