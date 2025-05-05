@@ -16,6 +16,8 @@ import addressRouter from './routes/addressRoute.js'
 import premiumRoute from './routes/premiumRoute.js'
 import batchMintRouter from './routes/batchMintRoutes.js'
 import purchaseRouter from './routes/purchaseRoutes.js'
+import violationRouter from './routes/violationRoutes.js'
+import violationNFTRouter from './routes/violationNFTRoutes.js'
 
 const app = express()
 
@@ -25,7 +27,6 @@ await connectCloudinary()
 
 app.use(cors())
 
-// Increase JSON payload limit for batch operations
 app.use(express.json({ limit: '50mb' }))
 
 app.use(clerkMiddleware())
@@ -53,6 +54,10 @@ app.use('/api/address', express.json(), addressRouter)
 app.use('/api/premium', express.json(), premiumRoute)
 
 app.use('/api/batch', express.json(), batchMintRouter)
+
+app.use('/api/violation', express.json(), violationRouter)
+
+app.use('/api/violation-nft', express.json(), violationNFTRouter)
 
 app.use('/api/purchase', express.json(), purchaseRouter)
 
