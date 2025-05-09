@@ -240,36 +240,53 @@ export const paypalCancel = async (req, res) => {
             return res.status(400).json({ success: false, message: 'You already own this course.' });
         }
 
+        // Đảm bảo giá trị price là số hợp lệ
+        const priceValue = parseFloat(price);
+        if (isNaN(priceValue) || priceValue <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid price value' });
+        }
+
         const purchase = await Purchase.create({
             courseId,
             userId,
-            amount: price,
+            amount: priceValue,
             currency: 'USD',
             status: 'pending',
             paymentMethod: 'Stripe payment',
-            receiverAddress: process.env.PAYPAL_BUSINESS_EMAIL,
-            note: 'Đang chờ thanh toán',
+            receiverAddress: process.env.STRIPE_ACCOUNT_EMAIL || 'admin@example.com',
+            note: `Payment for course: ${courseName}`,
             createdAt: new Date(),
         });
 
+        // Tạo session Stripe với thông tin chi tiết hơn
+        const clientOrigin = req.get('origin') || 'https://client-react-brown.vercel.app';
         const session = await stripe.checkout.sessions.create({
-            success_url: `${req.get('origin') || 'https://client-react-brown.vercel.app'}/my-enrollments?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.get('origin') || 'https://client-react-brown.vercel.app'}/courses`,
+            payment_method_types: ['card'],
+            success_url: `${clientOrigin}/my-enrollments?purchase_id=${purchase._id.toString()}&status=success`,
+            cancel_url: `${clientOrigin}/courses?status=cancelled`,
             line_items: [{
                 price_data: {
                     currency: 'usd',
                     product_data: {
-                        name: courseName,  
+                        name: courseName,
+                        description: `Course enrollment`,
                     },
-                    unit_amount: Math.round(price * 100), 
+                    unit_amount: Math.round(priceValue * 100), // Chuyển đổi sang cents
                 },
                 quantity: 1,
             }],
             mode: 'payment',
             metadata: {
-                purchaseId: purchase._id.toString()
-            }
+                purchaseId: purchase._id.toString(),
+                courseId: courseId,
+                userId: userId
+            },
+            client_reference_id: purchase._id.toString(),
         });
+
+        // Lưu session ID vào purchase để có thể kiểm tra sau này
+        purchase.paymentId = session.id;
+        await purchase.save();
 
         res.json({ success: true, sessionUrl: session.url });
 
@@ -281,32 +298,71 @@ export const paypalCancel = async (req, res) => {
 
 
 export const stripeSuccess = async (req, res) => {
-    const { purchaseId } = req.query;
-
+    // Lấy purchase_id từ query parameters
+    const { purchase_id } = req.query;
+    
     try {
-        const purchase = await Purchase.findById(purchaseId);
-        if (!purchase) throw new Error('Không tìm thấy giao dịch');
+        // Nếu không có purchase_id, trả về lỗi
+        if (!purchase_id) {
+            throw new Error('Missing purchase ID');
+        }
 
+        // Tìm giao dịch trong database
+        const purchase = await Purchase.findById(purchase_id);
+        if (!purchase) {
+            throw new Error('Transaction not found');
+        }
+
+        // Kiểm tra nếu giao dịch đã hoàn thành rồi thì không cần xử lý nữa
+        if (purchase.status === 'completed') {
+            console.log(`Purchase ${purchase_id} already completed. Redirecting to enrollments.`);
+            return res.redirect('/my-enrollments?status=success&message=You are already enrolled in this course.');
+        }
+
+        // Cập nhật trạng thái giao dịch thành 'completed'
         purchase.status = 'completed';
+        purchase.note = 'Payment completed via Stripe';
+        purchase.updatedAt = new Date();
         await purchase.save();
 
+        // Tìm thông tin người dùng và khóa học
         const user = await User.findById(purchase.userId);
         const course = await Course.findById(purchase.courseId);
 
-        if (user && course) {
-            user.enrolledCourses.push(purchase.courseId);
-            course.enrolledStudents.push(purchase.userId);
-
-            await user.save();
-            await course.save();
+        if (!user) {
+            throw new Error('User not found');
         }
 
-        const origin = req.get('origin') || req.get('referer')?.replace(/\/[^/]*$/, '') || 'https://client-react-brown.vercel.app';
-        res.redirect(`${origin}/my-enrollments`);
+        if (!course) {
+            throw new Error('Course not found');
+        }
+
+        // Kiểm tra xem người dùng đã đăng ký khóa học này chưa
+        const alreadyEnrolled = user.enrolledCourses.includes(purchase.courseId);
+        if (!alreadyEnrolled) {
+            // Thêm khóa học vào danh sách đăng ký của người dùng
+            user.enrolledCourses.push(purchase.courseId);
+            await user.save();
+            console.log(`User ${user._id} enrolled in course ${purchase.courseId}`);
+        }
+
+        // Kiểm tra xem khóa học đã có học viên này chưa
+        const studentEnrolled = course.enrolledStudents.includes(purchase.userId);
+        if (!studentEnrolled) {
+            // Thêm học viên vào danh sách của khóa học
+            course.enrolledStudents.push(purchase.userId);
+            await course.save();
+            console.log(`Course ${course._id} added student ${purchase.userId}`);
+        }
+
+        // Chuyển hướng người dùng đến trang my-enrollments với thông báo thành công
+        const clientOrigin = req.get('origin') || 'https://client-react-brown.vercel.app';
+        res.redirect(`${clientOrigin}/my-enrollments?status=success&message=Payment successful! You are now enrolled in the course.`);
     } catch (error) {
-        console.error('Stripe success error:', error);
-        const origin = req.get('origin') || req.get('referer')?.replace(/\/[^/]*$/, '') || 'https://client-react-brown.vercel.app';
-        res.redirect(`${origin}/payment-error?code=stripe_failed`);
+        console.error('Stripe success handler error:', error);
+        const clientOrigin = req.get('origin') || 'https://client-react-brown.vercel.app';
+        res.redirect(`${clientOrigin}/my-enrollments?status=error&message=${encodeURIComponent(error.message || 'Payment processing failed')}`);
+
     }
 };
 
